@@ -57,7 +57,7 @@ export class CheerioEngine implements Engine {
   private async fetch(url: string): Promise<string | null> {
     try {
       const res = await fetch(url, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; WebCrawler/1.0)' },
+        headers: { 'User-Agent': 'Mozilla/5.0' },
       });
       if (!res.ok) return null;
       return res.text();
