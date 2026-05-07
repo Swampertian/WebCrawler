@@ -2,9 +2,12 @@ import { SourceConfig } from '../../source-config/interfaces/source-config.inter
 
 export interface ScrapedItem {
   url: string;
-  title: string;
-  date?: string;
-  metadata?: Record<string, unknown>;
+  fields: Record<string, string>;
+}
+
+export interface FilteredItem extends ScrapedItem {
+  matchedKeywords: string[];
+  matchedFields: string[];
 }
 
 export interface Engine {

@@ -1,24 +1,13 @@
-import { Controller,Sse, MessageEvent } from '@nestjs/common';
+import { Controller, Sse, MessageEvent } from '@nestjs/common';
 import { Observable } from 'rxjs';
-
+import { ResultService } from './result.service';
 
 @Controller('results')
 export class ResultController {
-  @Sse('results')
-    sendResults(): Observable <MessageEvent> {
-        return new Observable((observer) => {
-            const interval = setInterval(() => {
-                const result = {
-                    url: 'http://example.com',
-                    status: 'crawled',
-                    timestamp: new Date(),
-                };
-                observer.next({ data: result });
-            }, 2000);
-            
-            return () => clearInterval(interval);
-        });
-    }
-}
+  constructor(private readonly resultService: ResultService) {}
 
-    
+  @Sse('stream')
+  stream(): Observable<MessageEvent> {
+    return this.resultService.stream();
+  }
+}

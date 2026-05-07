@@ -1,0 +1,47 @@
+import { Injectable, Logger, MessageEvent } from '@nestjs/common';
+import { Observable, Subject } from 'rxjs';
+import { ResultRepository } from './result.repository';
+import { CreateResultDto } from './interface/CreateResultDto';
+import { EventDto } from './interface/EventDto';
+
+@Injectable()
+export class ResultService {
+  private readonly logger = new Logger(ResultService.name);
+  private readonly events$ = new Subject<EventDto>();
+
+  constructor(private readonly resultRepository: ResultRepository) {}
+
+  stream(): Observable<MessageEvent> {
+    return new Observable((observer) => {
+      const sub = this.events$.subscribe({
+        next: (event) => observer.next({ data: event } as MessageEvent),
+        error: (err) => observer.error(err),
+      });
+      return () => sub.unsubscribe();
+    });
+  }
+
+  emit(event: EventDto): void {
+    this.events$.next(event);
+  }
+
+  async saveMany(dtos: CreateResultDto[]): Promise<void> {
+    if (!dtos.length) return;
+    await this.resultRepository.upsertMany(dtos);
+
+    for (const dto of dtos) {
+      this.emit({
+        type: 'item_saved',
+        sourceId: dto.sourceId,
+        payload: {
+          url: dto.url,
+          matchedKeywords: dto.matchedKeywords,
+          matchedFields: dto.matchedFields,
+          fields: dto.fields,
+        },
+      });
+    }
+
+    this.logger.log(`[${dtos[0].sourceId}] persisted ${dtos.length} results`);
+  }
+}

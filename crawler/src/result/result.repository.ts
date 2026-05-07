@@ -2,15 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Result, ResultDocument } from './schemas/result.schema';
-
-export interface CreateResultDto {
-  url: string;
-  sourceId: string;
-  title: string;
-  matchedKeywords: string[];
-  date?: string;
-  metadata?: Record<string, unknown>;
-}
+import { CreateResultDto } from './interface/CreateResultDto';
 
 @Injectable()
 export class ResultRepository {

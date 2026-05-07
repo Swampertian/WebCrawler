@@ -3,7 +3,7 @@ import { SourceConfig } from '../source-config/interfaces/source-config.interfac
 import { CheerioEngine } from './engines/cheerio.engine';
 import { PlaywrightEngine } from './engines/playwright.engine';
 import { KeywordFilter } from './filters/keyword.filter';
-import { ResultRepository } from '../result/result.repository';
+import { ResultService } from '../result/result.service';
 
 @Injectable()
 export class ScraperService {
@@ -13,31 +13,35 @@ export class ScraperService {
     private readonly cheerioEngine: CheerioEngine,
     private readonly playwrightEngine: PlaywrightEngine,
     private readonly keywordFilter: KeywordFilter,
-    private readonly resultRepository: ResultRepository,
+    private readonly resultService: ResultService,
   ) {}
 
   async run(config: SourceConfig): Promise<void> {
     this.logger.log(`[${config.id}] start`);
+    this.resultService.emit({ type: 'job_start', sourceId: config.id });
 
     const engine =
-      config.engine === 'playwright'
-        ? this.playwrightEngine
-        : this.cheerioEngine;
+      config.engine === 'playwright' ? this.playwrightEngine : this.cheerioEngine;
 
     const items = await engine.scrape(config);
-    const filtered = this.keywordFilter.filter(items, config.keywords);
+    const filtered = this.keywordFilter.filter(items, config.keywords, config.keywordFields);
 
-    await this.resultRepository.upsertMany(
+    await this.resultService.saveMany(
       filtered.map((item) => ({
         url: item.url,
         sourceId: config.id,
-        title: item.title,
         matchedKeywords: item.matchedKeywords,
-        date: item.date,
-        metadata: item.metadata ?? {},
+        matchedFields: item.matchedFields,
+        fields: item.fields,
       })),
     );
 
-    this.logger.log(`[${config.id}] saved ${filtered.length}/${items.length}`);
+    this.resultService.emit({
+      type: 'job_done',
+      sourceId: config.id,
+      payload: { total: filtered.length },
+    });
+
+    this.logger.log(`[${config.id}] done ${filtered.length}/${items.length}`);
   }
 }

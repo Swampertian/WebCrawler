@@ -19,29 +19,35 @@ export class CheerioEngine implements Engine {
 
       const $ = cheerio.load(html);
       const elements = $(config.selectors.items);
-
       if (!elements.length) break;
 
       elements.each((_, el) => {
-        const title = $(el).find(config.selectors.title).text().trim();
-        const href = $(el).find(config.selectors.link).attr('href') ?? '';
-        const date = config.selectors.date
-          ? $(el).find(config.selectors.date).text().trim()
-          : undefined;
+        const fields: Record<string, string> = {};
 
-        const resolvedUrl = href.startsWith('http')
-          ? href
-          : new URL(href, config.url).toString();
-
-        if (resolvedUrl) {
-          items.push({ url: resolvedUrl, title, date });
+        for (const [name, fieldCfg] of Object.entries(config.selectors.fields)) {
+          const node = $(el).find(fieldCfg.selector);
+          fields[name] =
+            fieldCfg.attr === 'text'
+              ? node.text().trim()
+              : fieldCfg.attr === 'html'
+                ? (node.html()?.trim() ?? '')
+                : (node.attr(fieldCfg.attr) ?? '');
         }
+
+        const rawUrl = fields['url'] ?? '';
+        if (!rawUrl) return;
+
+        fields['url'] = rawUrl.startsWith('http')
+          ? rawUrl
+          : new URL(rawUrl, config.url).toString();
+
+        items.push({ url: fields['url'], fields });
       });
 
       page++;
     }
 
-    this.logger.log(`[${config.id}] cheerio scraped ${items.length} items`);
+    this.logger.log(`[${config.id}] cheerio: ${items.length} items`);
     return items;
   }
 
@@ -50,8 +56,8 @@ export class CheerioEngine implements Engine {
       return config.url;
     }
     const param = config.pagination.paramName ?? 'page';
-    const separator = config.url.includes('?') ? '&' : '?';
-    return `${config.url}${separator}${param}=${page}`;
+    const sep = config.url.includes('?') ? '&' : '?';
+    return `${config.url}${sep}${param}=${page}`;
   }
 
   private async fetch(url: string): Promise<string | null> {
@@ -62,7 +68,7 @@ export class CheerioEngine implements Engine {
       if (!res.ok) return null;
       return res.text();
     } catch (err) {
-      this.logger.error(`Fetch failed: ${url}`, err);
+      this.logger.error(`fetch failed: ${url}`, err);
       return null;
     }
   }

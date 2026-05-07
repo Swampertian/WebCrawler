@@ -11,17 +11,14 @@ export class Result {
   @Prop({ required: true })
   sourceId!: string;
 
-  @Prop()
-  title!: string;
-
   @Prop({ type: [String], default: [] })
   matchedKeywords!: string[];
 
-  @Prop()
-  date!: string;
+  @Prop({ type: [String], default: [] })
+  matchedFields!: string[];
 
   @Prop({ type: Object, default: {} })
-  metadata!: Record<string, unknown>;
+  fields!: Record<string, string>;
 }
 
 export const ResultSchema = SchemaFactory.createForClass(Result);
