@@ -2,7 +2,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import { SourceConfig } from '../source-config/interfaces/source-config.interface';
 import { CheerioEngine } from './engines/cheerio.engine';
 import { PlaywrightEngine } from './engines/playwright.engine';
-import { KeywordFilter } from './filters/keyword.filter';
 import { ResultService } from '../result/result.service';
 
 @Injectable()
@@ -12,7 +11,6 @@ export class ScraperService {
   constructor(
     private readonly cheerioEngine: CheerioEngine,
     private readonly playwrightEngine: PlaywrightEngine,
-    private readonly keywordFilter: KeywordFilter,
     private readonly resultService: ResultService,
   ) {}
 
@@ -20,28 +18,17 @@ export class ScraperService {
     this.logger.log(`[${config.id}] start`);
     this.resultService.emit({ type: 'job_start', sourceId: config.id });
 
-    const engine =
-      config.engine === 'playwright' ? this.playwrightEngine : this.cheerioEngine;
+    const engine = config.engine === 'playwright' ? this.playwrightEngine : this.cheerioEngine;
+    let total = 0;
 
-    const items = await engine.scrape(config);
-    const filtered = this.keywordFilter.filter(items, config.keywords, config.keywordFields);
+    for await (const items of engine.scrape(config)) {
+      this.resultService.saveMany(
+        items.map((item) => ({ url: item.url, sourceId: config.id, fields: item.fields })),
+      );
+      total += items.length;
+    }
 
-    await this.resultService.saveMany(
-      filtered.map((item) => ({
-        url: item.url,
-        sourceId: config.id,
-        matchedKeywords: item.matchedKeywords,
-        matchedFields: item.matchedFields,
-        fields: item.fields,
-      })),
-    );
-
-    this.resultService.emit({
-      type: 'job_done',
-      sourceId: config.id,
-      payload: { total: filtered.length },
-    });
-
-    this.logger.log(`[${config.id}] done ${filtered.length}/${items.length}`);
+    this.resultService.emit({ type: 'job_done', sourceId: config.id, payload: { total } });
+    this.logger.log(`[${config.id}] done: ${total} saved`);
   }
 }
