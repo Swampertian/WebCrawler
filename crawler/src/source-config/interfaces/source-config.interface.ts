@@ -8,6 +8,7 @@ export interface FieldConfig {
 export interface Interaction {
   action: 'click' | 'wait' | 'scroll';
   selector: string;
+  text?: string;
   times?: number;
 }
 
@@ -27,8 +28,6 @@ export interface SourceConfig {
     items: string;
     fields: Record<string, FieldConfig>;
   };
-  keywords: string[];
-  keywordFields: string[];
   interactions?: Interaction[];
   pagination?: PaginationConfig;
 }
