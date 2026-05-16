@@ -25,21 +25,12 @@ export class ResultService {
     this.events$.next(event);
   }
 
-  async saveMany(dtos: CreateResultDto[]): Promise<void> {
+  saveMany(dtos: CreateResultDto[]): void {
     if (!dtos.length) return;
-    await this.resultRepository.upsertMany(dtos);
+    this.resultRepository.upsertMany(dtos);
 
     for (const dto of dtos) {
-      this.emit({
-        type: 'item_saved',
-        sourceId: dto.sourceId,
-        payload: {
-          url: dto.url,
-          matchedKeywords: dto.matchedKeywords,
-          matchedFields: dto.matchedFields,
-          fields: dto.fields,
-        },
-      });
+      this.emit({ type: 'item_saved', sourceId: dto.sourceId, payload: { url: dto.url, fields: dto.fields } });
     }
 
     this.logger.log(`[${dtos[0].sourceId}] persisted ${dtos.length} results`);
