@@ -1,12 +1,20 @@
-import { Module } from '@nestjs/common';
-import { MongooseModule } from '@nestjs/mongoose';
+import { Global, Module } from '@nestjs/common';
+import Database from 'better-sqlite3';
+import { join } from 'path';
 
+export const DB = 'SQLITE_DB';
+
+@Global()
 @Module({
-  imports: [
-    MongooseModule.forRoot(
-      process.env.MONGODB_URI ?? 'mongodb://localhost:27017/webcrawler',
-    ),
+  providers: [
+    {
+      provide: DB,
+      useFactory: () => {
+        const db = new Database(join(process.cwd(), 'crawler.db'));
+        return db;
+      },
+    },
   ],
-  exports: [MongooseModule],
+  exports: [DB],
 })
 export class DatabaseModule {}
