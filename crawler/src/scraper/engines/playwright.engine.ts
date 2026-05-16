@@ -1,19 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { chromium, Page } from 'playwright';
-import {
-  Interaction,
-  SourceConfig,
-} from '../../source-config/interfaces/source-config.interface';
+import { Interaction, SourceConfig } from '../../source-config/interfaces/source-config.interface';
 import { Engine, ScrapedItem } from './engine.interface';
 
 @Injectable()
 export class PlaywrightEngine implements Engine {
   private readonly logger = new Logger(PlaywrightEngine.name);
 
-  async scrape(config: SourceConfig): Promise<ScrapedItem[]> {
+  async *scrape(config: SourceConfig): AsyncGenerator<ScrapedItem[]> {
     const browser = await chromium.launch({ headless: true });
     const page = await browser.newPage();
-    const items: ScrapedItem[] = [];
     const maxPages = config.pagination?.maxPages ?? 1;
 
     try {
@@ -24,8 +20,11 @@ export class PlaywrightEngine implements Engine {
       }
 
       for (let i = 0; i < maxPages; i++) {
+        const baseUrl = page.url();
         const elements = await page.$$(config.selectors.items);
         if (!elements.length) break;
+
+        const items: ScrapedItem[] = [];
 
         for (const el of elements) {
           const fields: Record<string, string> = {};
@@ -47,16 +46,15 @@ export class PlaywrightEngine implements Engine {
 
           fields['url'] = rawUrl.startsWith('http')
             ? rawUrl
-            : new URL(rawUrl, config.url).toString();
+            : new URL(rawUrl, baseUrl).toString();
 
           items.push({ url: fields['url'], fields });
         }
 
-        if (
-          !config.pagination ||
-          config.pagination.type !== 'button' ||
-          i === maxPages - 1
-        ) break;
+        this.logger.log(`[${config.id}] page ${i + 1}: ${items.length} items`);
+        if (items.length) yield items;
+
+        if (!config.pagination || config.pagination.type !== 'button' || i === maxPages - 1) break;
 
         const next = await page.$(config.pagination.selector!);
         if (!next) break;
@@ -66,21 +64,22 @@ export class PlaywrightEngine implements Engine {
     } finally {
       await browser.close();
     }
-
-    this.logger.log(`[${config.id}] playwright: ${items.length} items`);
-    return items;
   }
 
   private async runInteractions(page: Page, interactions: Interaction[]): Promise<void> {
     for (const it of interactions) {
       if (it.action === 'click') {
-        await page.click(it.selector).catch(() => {});
+        const locator = it.text
+          ? page.locator(it.selector, { hasText: it.text }).first()
+          : page.locator(it.selector).first();
+        await locator.click();
+        await page.waitForLoadState('networkidle');
       } else if (it.action === 'wait') {
         await page.waitForSelector(it.selector).catch(() => {});
       } else if (it.action === 'scroll') {
         const times = it.times ?? 1;
         for (let i = 0; i < times; i++) {
-          await page.click(it.selector).catch(() => {});
+          await page.mouse.wheel(0, 600);
           await page.waitForLoadState('networkidle').catch(() => {});
         }
       }
