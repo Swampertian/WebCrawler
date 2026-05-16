@@ -5,11 +5,6 @@ export interface ScrapedItem {
   fields: Record<string, string>;
 }
 
-export interface FilteredItem extends ScrapedItem {
-  matchedKeywords: string[];
-  matchedFields: string[];
-}
-
 export interface Engine {
-  scrape(config: SourceConfig): Promise<ScrapedItem[]>;
+  scrape(config: SourceConfig): AsyncGenerator<ScrapedItem[]>;
 }
