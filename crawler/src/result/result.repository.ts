@@ -1,24 +1,47 @@
-import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { Result, ResultDocument } from './schemas/result.schema';
+import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
+import Database from 'better-sqlite3';
+import { DB } from '../database/database.module';
 import { CreateResultDto } from './interface/CreateResultDto';
 
 @Injectable()
-export class ResultRepository {
-  constructor(
-    @InjectModel(Result.name) private readonly model: Model<ResultDocument>,
-  ) {}
+export class ResultRepository implements OnModuleInit {
+  private upsertStmt!: Database.Statement;
 
-  async upsert(dto: CreateResultDto): Promise<void> {
-    await this.model.findOneAndUpdate(
-      { url: dto.url },
-      { $set: dto },
-      { upsert: true, new: true },
-    );
+  constructor(@Inject(DB) private readonly db: Database.Database) {}
+
+  onModuleInit() {
+    this.db.exec(`  
+        CREATE TABLE IF NOT EXISTS results (
+          url TEXT PRIMARY KEY,
+          sourceId TEXT NOT NULL,
+          fields TEXT NOT NULL DEFAULT '{}',
+          createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+          updatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+        )
+    `);
+
+    this.upsertStmt = this.db.prepare(`
+      INSERT INTO results (url, sourceId, fields)
+      VALUES (@url, @sourceId, @fields)
+      ON CONFLICT(url) DO UPDATE SET
+        sourceId = excluded.sourceId,
+        fields = excluded.fields,
+        updatedAt = datetime('now')
+    `);
   }
 
-  async upsertMany(dtos: CreateResultDto[]): Promise<void> {
-    await Promise.all(dtos.map((dto) => this.upsert(dto)));
+  upsert(dto: CreateResultDto): void {
+    this.upsertStmt.run({
+      url: dto.url,
+      sourceId: dto.sourceId,
+      fields: JSON.stringify(dto.fields),
+    });
+  }
+
+  upsertMany(dtos: CreateResultDto[]): void {
+    const tx = this.db.transaction((items: CreateResultDto[]) => {
+      for (const dto of items) this.upsert(dto);
+    });
+    tx(dtos);
   }
 }
