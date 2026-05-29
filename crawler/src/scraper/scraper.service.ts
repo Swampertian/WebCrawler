@@ -22,13 +22,14 @@ export class ScraperService {
     let total = 0;
 
     for await (const items of engine.scrape(config)) {
-      this.resultService.saveMany(
-        items.map((item) => ({ url: item.url, sourceId: config.id, fields: item.fields })),
-      );
+      const dtos = items.map((item) => ({ url: item.url, sourceId: config.id, fields: item.fields }));
+      this.resultService.saveMany(dtos);
+      for (const dto of dtos) this.logger.log(`[${config.id}] saving: ${dto.url}`);
       total += items.length;
     }
 
+    const unique = this.resultService.countBySource(config.id);
     this.resultService.emit({ type: 'job_done', sourceId: config.id, payload: { total } });
-    this.logger.log(`[${config.id}] done: ${total} saved`);
+    this.logger.log(`[${config.id}] done: ${total} scraped, ${unique} total unique in db`);
   }
 }
