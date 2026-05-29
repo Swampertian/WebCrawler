@@ -1,4 +1,4 @@
-import { Injectable, Logger, MessageEvent } from '@nestjs/common';
+import { Injectable, MessageEvent } from '@nestjs/common';
 import { Observable, Subject } from 'rxjs';
 import { ResultRepository } from './result.repository';
 import { CreateResultDto } from './interface/CreateResultDto';
@@ -6,7 +6,6 @@ import { EventDto } from './interface/EventDto';
 
 @Injectable()
 export class ResultService {
-  private readonly logger = new Logger(ResultService.name);
   private readonly events$ = new Subject<EventDto>();
 
   constructor(private readonly resultRepository: ResultRepository) {}
@@ -32,7 +31,9 @@ export class ResultService {
     for (const dto of dtos) {
       this.emit({ type: 'item_saved', sourceId: dto.sourceId, payload: { url: dto.url, fields: dto.fields } });
     }
+  }
 
-    this.logger.log(`[${dtos[0].sourceId}] persisted ${dtos.length} results`);
+  countBySource(sourceId: string): number {
+    return this.resultRepository.countBySource(sourceId);
   }
 }

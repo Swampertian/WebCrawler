@@ -44,4 +44,9 @@ export class ResultRepository implements OnModuleInit {
     });
     tx(dtos);
   }
+
+  countBySource(sourceId: string): number {
+    const row = this.db.prepare('SELECT COUNT(*) as c FROM results WHERE sourceId = ?').get(sourceId) as { c: number };
+    return row.c;
+  }
 }
