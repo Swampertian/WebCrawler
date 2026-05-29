@@ -19,6 +19,11 @@ export interface PaginationConfig {
   maxPages: number;
 }
 
+export interface FilterConfig {
+  field: string;
+  pattern: string;
+}
+
 export interface SourceConfig {
   id: string;
   name: string;
@@ -28,6 +33,7 @@ export interface SourceConfig {
     items: string;
     fields: Record<string, FieldConfig>;
   };
+  filter?: FilterConfig;
   interactions?: Interaction[];
   pagination?: PaginationConfig;
 }
