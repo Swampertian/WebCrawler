@@ -21,16 +21,22 @@ export class CheerioEngine implements Engine {
       const $ = cheerio.load(html);
       const items: ScrapedItem[] = [];
 
+      const filterRegex = config.filter
+        ? new RegExp(config.filter.pattern, 'i')
+        : null;
+
       $(config.selectors.items).each((index, el) => {
         const fields: Record<string, string> = {};
 
         for (const [name, fieldCfg] of Object.entries(config.selectors.fields)) {
-          const node = $(el).find(fieldCfg.selector);
+          const node = fieldCfg.selector === ':self' ? $(el) : $(el).find(fieldCfg.selector);
           fields[name] =
             fieldCfg.attr === 'text' ? node.text().trim()
             : fieldCfg.attr === 'html' ? (node.html()?.trim() ?? '')
             : (node.attr(fieldCfg.attr) ?? '');
         }
+
+        if (filterRegex && !filterRegex.test(fields[config.filter!.field] ?? '')) return;
 
         const rawUrl = fields['url'] ?? '';
         const resolvedUrl = rawUrl
